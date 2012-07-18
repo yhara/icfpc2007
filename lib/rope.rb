@@ -22,17 +22,6 @@ class Rope
             end
   end
   attr_reader :node
-  protected :node
-
-  def +(other)
-    right = case other
-            when String then Leaf.new(other)
-            when Rope then other.node
-            else raise TypeError
-            end
-
-    Rope[Node.new(@node, right)]
-  end
 
   def [](arg1, arg2=nil)
     if arg2
@@ -54,7 +43,26 @@ class Rope
   end
   alias slice []
 
-  def_delegators :@node, :to_s, :size, :length, :each_char
+  def_delegators :@node, :+, :to_s, :size, :length, :each_char, :shift,
+    :prepend
+
+  def prepend(other)
+    if Leaf === @node 
+      @node = Node.new(Rope[other], @node)
+    else
+      @node.prepend(other)
+    end
+    self
+  end
+
+  def concat(other)
+    if Leaf === @node 
+      @node = Node.new(@node, Rope[other])
+    else
+      @node.concat(other)
+    end
+    self
+  end
 
   def inspect
     "#<Rope #{to_s.inspect}>"
@@ -63,13 +71,50 @@ class Rope
   class Node
     def initialize(left, right)
       @left, @right = Leaf.new(left), Leaf.new(right)
-      @size = left.size + right.size
+      update_size
     end
     attr_reader :size
     alias length size
 
-    def bytesize
-      @left.bytesize + @right.bytesize
+    def update_size
+      @size = @left.size + @right.size
+    end
+    private :update_size
+
+    def +(other)
+      right = case other
+              when String then Leaf.new(other)
+              when Rope then other.node
+              else raise TypeError
+              end
+
+      Rope[Node.new(@node, right)]
+    end
+
+    # Destructively prepends other to self
+    def prepend(other)
+      new_left = case other
+                 when String then Leaf.new(other)
+                 when Rope then other.node
+                 else raise TypeError
+                 end
+
+      @left = new_left
+      @right = Node.new(@left, @right)
+      update_size
+    end
+    
+    # Destructively appends other to self
+    def concat(other)
+      new_right = case other
+                  when String then Leaf.new(other)
+                  when Rope then other.node
+                  else raise TypeError
+                  end
+
+      @left = Node.new(@left, @right)
+      @right = new_right
+      update_size
     end
 
     # Returns String
@@ -114,17 +159,32 @@ class Rope
       end
     end
 
-    # Yields String
-    def each_char(&block)
-      if block
-        @left.each_char(&block)
-        @right.each_char(&block)
-      else
-        Enumerator.new{|y|
-          @left.each_char{|c| y << c}
-          @right.each_char{|c| y << c}
-        }
-      end
+#    # Yields String
+#    def each_char(&block)
+#      if block
+#        @left.each_char(&block)
+#        @right.each_char(&block)
+#      else
+#        Enumerator.new{|y|
+#          @left.each_char{|c| y << c}
+#          @right.each_char{|c| y << c}
+#        }
+#      end
+#    end
+
+    # Destructively remove first n chars and returns a String.
+    def shift(n=1)
+      
+    end
+
+    # Find first match from nth position.
+    # Returns index (Integer) or nil
+    def include_from?(nth, str)
+
+    end
+
+    def inspect
+      "#<Node #{@left.inspect}, #{@right.inspect}>"
     end
 
     def to_s

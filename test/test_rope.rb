@@ -3,16 +3,16 @@ require 'test-unit'
 
 class Rope
   class TestRope < Test::Unit::TestCase
+    def setup
+      @rope = Rope["foo"]
+      @node_rope = Rope[Node.new("foo", "bar")]
+    end
+
     def test_initialize
       assert_nothing_raised{ Rope["foo"] }
       assert_nothing_raised{ Rope[Node.new("foo", "bar")] }
       assert_nothing_raised{ Rope[Rope["foo"]] }
       assert_raises(TypeError){ Rope[1] }
-    end
-
-    def test_plus
-      assert_rope "foobar", (Rope["foo"] + "bar")
-      assert_rope "foobar", (Rope["foo"] + Rope["bar"])
     end
 
     def test_size
@@ -36,6 +36,46 @@ class Rope
       assert_rope "bc", Rope[Node.new("abc", "de")][1, 2]
       assert_rope "bcd", Rope[Node.new("abc", "de")][1, 3]
       assert_rope "d", Rope[Node.new("abc", "de")][3, 1]
+    end
+
+    def test_prepend_str
+      @rope.prepend("bar")
+      assert_rope "barfoo", @rope
+      assert_equal 6, @rope.size
+    end
+
+    def test_prepend_rope
+      @rope.prepend(Rope["bar"])
+      assert_rope "barfoo", @rope
+      assert_equal 6, @rope.size
+    end
+
+    def test_concat_leaf_leaf
+      @rope.concat("bar")
+      assert_rope "foobar", @rope
+      assert_equal 6, @rope.size
+    end
+
+    def test_concat_leaf_node
+      @rope.concat(Rope[Node.new("bar", "baz")])
+      assert_rope "foobarbaz", @rope
+      assert_equal 9, @rope.size
+    end
+
+    def test_concat_node_leaf
+      @node_rope.concat("baz")
+      assert_rope "foobarbaz", @node_rope
+      assert_equal 9, @node_rope.size
+    end
+
+    def test_concat_node_node
+      @node_rope.concat(Rope[Node.new("bar", "baz")])
+      assert_rope "foobarbarbaz", @node_rope
+      assert_equal 12, @node_rope.size
+    end
+
+    def test_shift_leaf
+
     end
 
     private
