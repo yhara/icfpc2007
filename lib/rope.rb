@@ -69,6 +69,9 @@ class Rope
   end
 
   def shift(n=1)
+    ret = @node.shift(n)
+    @node = @node.remove_empty_leaf
+    ret
   end
 
   def inspect
@@ -86,6 +89,10 @@ class Rope
     end
     attr_reader :size
     alias length size
+
+    def empty?
+      @size == 0
+    end
 
     def update_size
       @size = @left.size + @right.size
@@ -165,7 +172,28 @@ class Rope
 
     # Destructively remove first n chars and returns a String.
     def shift(n=1)
-      
+#      if @left.size <= n
+#        # consumed
+#        rest_n = n - @left.size
+#      end
+
+      shift_l = [n, @left.size].min
+      shift_r = n - @left.size
+
+      ret = @left.shift(shift_l)
+      ret.concat @right.shift(shift_r) if shift_r >= 0
+      update_size
+      ret
+    end
+
+    # We need to cleanup empty leafs after shift
+    # Returns a Node or Leaf
+    def remove_empty_leaf
+      if @left.empty?
+        @right.remove_empty_leaf
+      else
+        self
+      end
     end
 
     # Find first match from nth position.
@@ -207,6 +235,10 @@ class Rope
       ret
     end
 
+    def remove_empty_leaf
+      self
+    end
+
     def char_at(nth)
       @str[@start + nth]
     end
@@ -228,7 +260,7 @@ class Rope
     end
 
     def inspect
-      "#<Leaf #{@str.inspect}>"
+      "#<Leaf #{to_s.inspect}>"
     end
   end
 end

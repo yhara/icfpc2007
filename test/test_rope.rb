@@ -75,15 +75,38 @@ class Rope
     end
 
     def test_shift_leaf
+      rope = Rope["fooo"]
+      assert_equal "f", rope.shift 
+      assert_equal 3, rope.size
+      assert_equal "oo", rope.shift(2)
+      assert_equal 1, rope.size
+      assert_equal "o", rope.shift(10)
+      assert_equal 0, rope.size
+      assert_equal nil, rope.shift(100)
+      assert_equal 0, rope.size
     end
 
     def test_shift_node
+      rope = Rope[Node["foo", "bar"]]
+      assert_equal "fo", rope.shift(2)
+      assert_rope "obar", rope
+      assert_equal 4, rope.size
     end
 
-    def test_shift_leaf_leaf
+    def test_shift_node_consumed
+      rope = Rope[Node["foo", "bar"]]
+      assert_equal "foob", rope.shift(4)
+      assert_rope "ar", rope
+      assert_equal 2, rope.size
+      assert_instance_of Leaf, rope.node
     end
 
     def test_shift_node_node
+      rope = Rope[Node[Node["foo", "bar"], Node["baz", "quux"]]]
+      assert_equal "foobarbazq", rope.shift(10)
+      assert_rope "uux", rope
+      assert_equal 3, rope.size
+      assert_instance_of Leaf, rope.node
     end
 
     private
