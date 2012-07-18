@@ -93,38 +93,18 @@ class Rope
     private :update_size
 
     def +(other)
-      right = case other
-              when String then Leaf.new(other)
-              when Rope then other.node
-              else raise TypeError
-              end
-
-      Rope[Node.new(@node, right)]
+      Rope[Node.new(@node, Rope.Node(right))]
     end
 
     # Destructively prepends other to self
     def prepend(other)
-      new_left = case other
-                 when String then Leaf.new(other)
-                 when Rope then other.node
-                 else raise TypeError
-                 end
-
-      @left = new_left
-      @right = Node.new(@left, @right)
+      @left, @right = Rope.Node(other), Node.new(@left, @right)
       update_size
     end
     
     # Destructively appends other to self
     def concat(other)
-      new_right = case other
-                  when String then Leaf.new(other)
-                  when Rope then other.node
-                  else raise TypeError
-                  end
-
-      @left = Node.new(@left, @right)
-      @right = new_right
+      @left, @right = Node.new(@left, @right), Rope.Node(other)
       update_size
     end
 
