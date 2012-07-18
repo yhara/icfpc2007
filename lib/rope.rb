@@ -9,17 +9,21 @@ require 'delegate'
 class Rope
   extend Forwardable
 
+  def self.Node(arg)
+    case arg
+    when String then Leaf.new(arg)
+    when Node then arg
+    when Rope then arg.node
+    else raise TypeError
+    end
+  end
+
   def self.[](arg)
     new(arg)
   end
 
   def initialize(arg)
-    @node = case arg
-            when String then Leaf.new(arg)
-            when Node then arg  # used by Rope#+
-            when Rope then arg.node
-            else raise TypeError
-            end
+    @node = Rope.Node(arg)
   end
   attr_reader :node
 
@@ -64,13 +68,20 @@ class Rope
     self
   end
 
+  def shift(n=1)
+  end
+
   def inspect
     "#<Rope #{to_s.inspect}>"
   end
 
   class Node
+    def self.[](l, r)
+      new(Rope.Node(l), Rope.Node(r))
+    end
+
     def initialize(left, right)
-      @left, @right = Leaf.new(left), Leaf.new(right)
+      @left, @right = left, right
       update_size
     end
     attr_reader :size
@@ -192,13 +203,52 @@ class Rope
     end
   end
 
-  class Leaf < DelegateClass(String)
-    def char_at(nth) self[nth] end
-    def substr(nth, len) Rope[self[nth, len]] end
-    def substr_range(range) Rope[self[range]] end
+  class Leaf #< DelegateClass(String)
+    def initialize(str)
+      raise TypeError, "got #{str.inspect}" unless String === str
+      @str = str
+      @start = 0
+    end
+
+    def empty?
+      @start >= @str.size
+    end
+
+    def size
+      [@str.size - @start, 0].max
+    end
+    alias length size
+
+    def shift(n=1)
+      return nil if empty?
+
+      ret = @str[@start, n]
+      @start += n
+      ret
+    end
+
+    def char_at(nth)
+      @str[@start + nth]
+    end
+
+    def substr(nth, len)
+      Rope[@str[@start + nth, len]]
+    end
+
+    def substr_range(range)
+      if range.exclude_end?
+        Rope[@str[(@start + range.begin) ... range.end]]
+      else
+        Rope[@str[(@start + range.begin) .. range.end]]
+      end
+    end
+
+    def to_s
+      @str[@start..-1]
+    end
 
     def inspect
-      "#<Leaf #{super}>"
+      "#<Leaf #{@str.inspect}>"
     end
   end
 end
