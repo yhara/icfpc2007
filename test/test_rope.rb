@@ -38,6 +38,13 @@ class Rope
       assert_rope "d", Rope[Node["abc", "de"]][3, 1]
     end
 
+    def test_slice_range
+      assert_rope "CF", Leaf.new("CFPC").substr_range(0...2)
+      assert_rope "CF", Rope["CFPC"][0...2]
+    end
+
+    # prepend
+
     def test_prepend_str
       @rope.prepend("bar")
       assert_rope "barfoo", @rope
@@ -49,6 +56,8 @@ class Rope
       assert_rope "barfoo", @rope
       assert_equal 6, @rope.size
     end
+
+    # concat
 
     def test_concat_leaf_leaf
       @rope.concat("bar")
@@ -73,6 +82,8 @@ class Rope
       assert_rope "foobarbarbaz", @node_rope
       assert_equal 12, @node_rope.size
     end
+
+    # shift
 
     def test_shift_leaf
       rope = Rope["fooo"]
@@ -107,6 +118,31 @@ class Rope
       assert_rope "uux", rope
       assert_equal 3, rope.size
       assert_instance_of Leaf, rope.node
+    end
+
+    # index
+
+    def test_index_leaf
+      assert_equal 1, Rope["foo"].index("oo", 1)
+      assert_equal nil, Rope["foo"].index("oop", 1)
+    end
+    
+    def test_index_node
+      rope = Rope[Node["foo", "bar"]]
+      assert_equal 4, rope.index("ar", 1)
+      assert_equal nil, rope.index("arc", 1)
+    end
+
+    def test_index_leaf_leaf
+      rope = Rope[Node["foo", "bar"]]
+      assert_equal 2, rope.index("oba", 1)
+      assert_equal nil, rope.index("obb", 1)
+    end
+
+    def test_index_node_node
+      rope = Rope[Node[Node["foo", "bar"], Node["baz", "quux"]]]
+      assert_equal 2,   rope.index("obarbazq", 1)
+      assert_equal nil, rope.index("obarbaz_", 1)
     end
 
     private

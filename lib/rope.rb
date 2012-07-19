@@ -27,13 +27,18 @@ class Rope
   end
   attr_reader :node
 
+  def_delegators :@node, :+, :to_s, :size, :length, :empty?, :each_char, :shift, :char_at, :prepend, :index, :tree
+
+  def ==(other)
+    to_s == other.to_s
+  end
+
   def [](arg1, arg2=nil)
     if arg2
       case arg1
       when Integer then @node.substr(arg1, arg2)
       when String then @node.substr_if_match(arg1)
       when Regexp then @node.regexp_matched(arg1, arg2) # arg2: nth or name
-      when Range then @node.substr_range(arg1)
       else raise TypeError
       end
     else
@@ -41,18 +46,16 @@ class Rope
       when Integer then @node.char_at(arg1)
       when String then @node.substr_if_match(arg1)
       when Regexp then @node.regexp_matched(arg1)
-      else raise TypeError
+      when Range then @node.substr_range(arg1)
+      else raise TypeError, "got #{arg1.inspect}"
       end
     end
   end
   alias slice []
 
-  def_delegators :@node, :+, :to_s, :size, :length, :each_char, :shift,
-    :prepend
-
   def prepend(other)
     if Leaf === @node 
-      @node = Node.new(Rope[other], @node)
+      @node = Node.new(Rope.Node(other), @node)
     else
       @node.prepend(other)
     end
@@ -61,7 +64,7 @@ class Rope
 
   def concat(other)
     if Leaf === @node 
-      @node = Node.new(@node, Rope[other])
+      @node = Node.new(@node, Rope.Node(other))
     else
       @node.concat(other)
     end
@@ -75,7 +78,11 @@ class Rope
   end
 
   def inspect
-    "#<Rope #{to_s.inspect}>"
+    if size < 80
+      "#<Rope #{to_s.inspect}>"
+    else
+      "#<Rope #{to_s[0, 10]}...(#{size})>"
+    end
   end
 
   class Node
@@ -84,6 +91,8 @@ class Rope
     end
 
     def initialize(left, right)
+      raise TypeError, left.inspect unless (Node === left || Leaf === left)
+      raise TypeError, right.inspect unless (Node === right || Leaf === right)
       @left, @right = left, right
       update_size
     end
@@ -157,18 +166,18 @@ class Rope
       end
     end
 
-#    # Yields String
-#    def each_char(&block)
-#      if block
-#        @left.each_char(&block)
-#        @right.each_char(&block)
-#      else
-#        Enumerator.new{|y|
-#          @left.each_char{|c| y << c}
-#          @right.each_char{|c| y << c}
-#        }
-#      end
-#    end
+    # Yields String
+    def each_char(&block)
+      if block
+        @left.each_char(&block)
+        @right.each_char(&block)
+      else
+        Enumerator.new{|y|
+          @left.each_char{|c| y << c}
+          @right.each_char{|c| y << c}
+        }
+      end
+    end
 
     # Destructively remove first n chars and returns a String.
     def shift(n=1)
@@ -180,7 +189,7 @@ class Rope
       shift_l = [n, @left.size].min
       shift_r = n - @left.size
 
-      ret = @left.shift(shift_l)
+      ret = @left.shift(shift_l) or return nil
       ret.concat @right.shift(shift_r) if shift_r >= 0
       update_size
       ret
@@ -197,13 +206,27 @@ class Rope
     end
 
     # Find first match from nth position.
-    # Returns index (Integer) or nil
-    def include_from?(nth, str)
-
+    # str: String
+    # Returns Integer or nil
+    def index(str, pos)
+      case
+      when @left.size <= pos
+        @right.index(str, pos - @left.size)
+      when (ret = @left.index(str, pos))
+        ret
+      else
+        # Search is done for <= @left[]
+        left_s = kkk
+        left_p = pos
+      end
     end
 
     def inspect
       "#<Node #{@left.inspect}, #{@right.inspect}>"
+    end
+
+    def tree
+      "<#{@left.tree}, #{@right.tree}>"
     end
 
     def to_s
@@ -220,6 +243,10 @@ class Rope
 
     def empty?
       @start >= @str.size
+    end
+
+    def each_char(&block)
+      @str.each_char.drop(@start).each(&block)
     end
 
     def size
@@ -239,6 +266,10 @@ class Rope
       self
     end
 
+    def index(str, pos)
+      @str.index(str, @start + pos)
+    end
+
     def char_at(nth)
       @str[@start + nth]
     end
@@ -249,9 +280,9 @@ class Rope
 
     def substr_range(range)
       if range.exclude_end?
-        Rope[@str[(@start + range.begin) ... range.end]]
+        Rope[@str[(@start + range.begin) ... (@start + range.end)]]
       else
-        Rope[@str[(@start + range.begin) .. range.end]]
+        Rope[@str[(@start + range.begin) .. (@start + range.end)]]
       end
     end
 
@@ -260,7 +291,11 @@ class Rope
     end
 
     def inspect
-      "#<Leaf #{to_s.inspect}>"
+      "#<Leaf #{to_s} (#{@str}/#{@start})>"
+    end
+
+    def tree
+      "<#{@str}/#{@start}>"
     end
   end
 end
