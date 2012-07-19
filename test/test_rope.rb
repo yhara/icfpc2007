@@ -15,6 +15,14 @@ class Rope
       assert_raises(TypeError){ Rope[1] }
     end
 
+    def test_empty?
+      assert Rope[""].empty?
+      #assert Rope[Node["", ""]].empty?
+      assert Rope["a"].shift.empty?
+    end
+
+    # size
+
     def test_size
       assert_equal 3, Rope["foo"].size
       assert_equal 6, Rope[Node["foo", "bar"]].size
