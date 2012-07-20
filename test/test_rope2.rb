@@ -64,18 +64,18 @@ class TestRope2 < Test::Unit::TestCase
     assert_equal 0, r.size
   end
 
-#  def test_shift_removes_empty_leaf
-#    r = Rope[Rope["ab"], Rope["cde"]]; r.shift(3)
-#    assert_equal 2, r.size
-#    assert_equal "de", r.to_s
-#    assert_equal 1, r.depth
-#
-#    r = Rope[ Rope[Rope["a"], Rope["b"]],
-#              Rope[Rope["c"], Rope["d"]] ]; r.shift(3)
-#    assert_equal 1, r.size
-#    assert_equal "d", r.to_s
-#    assert_equal 1, r.depth
-#  end
+  def test_shift_removes_empty_leaf
+    r = Rope[Rope["ab"], Rope["cde"]]; r.shift(3)
+    assert_equal 2, r.size
+    assert_equal "de", r.to_s
+    assert_equal 1, r.depth
+
+    r = Rope[ Rope[Rope["a"], Rope["b"]],
+              Rope[Rope["c"], Rope["d"]] ]; r.shift(3)
+    assert_equal 1, r.size
+    assert_equal "d", r.to_s
+    assert_equal 1, r.depth
+  end
 
   def test_char_at
     assert_equal "b", Rope["abc"][1]

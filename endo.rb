@@ -23,12 +23,16 @@ def _log(str, newline=false)
 end
 
 def log(*args)
-  return
-  puts args.first
+  #puts args.first
   _log(*args)
 end
 
 module Endo
+  class NullPBar
+    def initialize(*args); end
+    def inc(*args); end
+  end
+
   class DNA
     @iteration = nil
     def self.iteration; @iteration; end
@@ -36,6 +40,7 @@ module Endo
 
     def initialize(dna)
       $pbar = ProgressBar.new("dna iteration", 1891886)
+      #$pbar = NullPBar.new
       @dna = Rope.new(dna)
       #@rna = StringIO.new
       #rna = File.open("rna.rna", "w")
@@ -54,8 +59,11 @@ module Endo
     def execute(return_string=false)
       catch :finish do
         0.upto(Float::INFINITY) do |i|
+#break if i==ARGV[0].to_i
           DNA.iteration = i
+puts "iteration #{i}" if i % 100 == 0
           log("#{i}", true)
+          p [:@dna, @dna.tree] if i >= 400
           log("dna: #{@dna.inspect}")
           pat = pattern
           log("pat: #{DNA.inspect_pattern(pat)}", true)
@@ -68,12 +76,13 @@ module Endo
             log("env: #{env.inspect}", true)
             replace(tpl, env)
           end
-          #p [:@dna, @dna]
           $pbar.inc(1)
         end
       end
       #$pbar.halt
       self
+    ensure
+      puts @dna.tree
     end
 
     def self.inspect_pattern(pat)

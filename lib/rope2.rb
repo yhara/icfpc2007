@@ -21,6 +21,24 @@
 
 require 'forwardable'
 
+module Profilable
+  def prof(method_name, opts={})
+    alias_method "#{method_name}_noprof", method_name
+    define_method method_name do |*args|
+      if opts[:when] && opts[:when].call
+        p [:prof_start, self, method_name, *args] if opts[:start]
+        t1 = Time.now
+        ret = __send__("#{method_name}_noprof", *args)
+        time = Time.now - t1
+        p [:prof, time, self, method_name, *args]
+        ret
+      else
+        __send__("#{method_name}_noprof", *args)
+      end
+    end
+  end
+end
+
 class Rope
   extend Forwardable
 
@@ -40,14 +58,24 @@ class Rope
       raise TypeError unless Node === arg1 && Node === arg2
       @node = Node.new(arg1, arg2)
     else
-      raise TypeError unless String === arg1
-      @node = Node.new(arg1)
+      case arg1
+      when String then @node = Node.new(arg1)
+      when Node   then @node = arg1
+      else raise TypeError
+      end
     end
   end
   attr_reader :node
 
   def_delegators :@node, :size, :depth, :empty?, :shift,
     :[], :index, :+, :to_s, :enum_from, :each_char
+
+  def shift(*args)
+    ret = @node.shift(*args)
+    @node = @node.remove_empty_leaf
+    @node.update_size_and_depth!
+    ret
+  end
 
   def inspect
     "#<Rope #{@node.inspect}>"
@@ -58,12 +86,13 @@ class Rope
   end
 
   class Node
+    extend Profilable
+
     def initialize(arg1=nil, arg2=nil)
       if arg2
         raise TypeError unless Node === arg1 && Node === arg2
         @left, @right = arg1, arg2
-        @size = @left.size + @right.size
-        @depth = [@left.depth, @right.depth].max + 1
+        update_size_and_depth!
       else
         if arg1
           raise unless String === arg1
@@ -93,7 +122,7 @@ class Rope
       end
     end
 
-    def shift(n=1)
+    def shift!(n=1)
       return nil if empty?
       if @leaf
         ret = @leaf[@start, n]
@@ -106,18 +135,32 @@ class Rope
         ret = @left.shift(l_shift) || ""
         ret.concat @right.shift(r_shift) if r_shift >= 0
 
-#        if @left.empty?
-#          @left, @right = new_left, new_right
-#        end
-        @size = @left.size + @right.size
-        @depth = [@left.depth, @right.depth].max + 1
+        update_size_and_depth!
 
         ret
       end
     end
+    alias shift shift!
 
-    def become_node(new_left, new_right)
+    def update_size_and_depth!
+      if @leaf
+        # do nothing
+      else
+        @size = @left.size + @right.size
+        @depth = [@left.depth, @right.depth].max + 1
+      end
+    end
 
+    def remove_empty_leaf
+      if @leaf
+        self
+      else
+        if @left.empty? 
+          @right.remove_empty_leaf
+        else
+          self
+        end
+      end
     end
 
     def [](arg)
@@ -166,15 +209,17 @@ class Rope
       }
       return nil
     end
+    prof :index, start: true, when: ->{ Endo::DNA.iteration >= 400 }
 
     def +(other_rope)
+      raise TypeError unless Rope === other_rope
       case
       when self.empty?
         other_rope
       when other_rope.empty?
-        self
+        Rope.new(self)
       else
-        Rope.new(self.node, other_rope.node)
+        Rope.new(self, other_rope.node)
       end
     end
 
