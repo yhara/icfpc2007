@@ -73,7 +73,7 @@ class Rope
   def shift(*args)
     ret = @node.shift(*args)
     @node = @node.remove_empty_leaf
-    @node.update_size_and_depth!
+    @node.update_depth!
     ret
   end
 
@@ -92,7 +92,8 @@ class Rope
       if arg2
         raise TypeError unless Node === arg1 && Node === arg2
         @left, @right = arg1, arg2
-        update_size_and_depth!
+        @size = @left.size + @right.size
+        @depth = [@left.depth, @right.depth].max + 1
       else
         if arg1
           raise unless ShiftableString === arg1
@@ -133,18 +134,18 @@ class Rope
         ret = @left.shift(l_shift) || ""
         ret.concat @right.shift(r_shift) if r_shift >= 0
 
-        update_size_and_depth!
+        @size = @left.size + @right.size
+        @depth = [@left.depth, @right.depth].max + 1
 
         ret
       end
     end
     alias shift shift!
 
-    def update_size_and_depth!
+    def update_depth!
       if @leaf
         # do nothing
       else
-        @size = @left.size + @right.size
         @depth = [@left.depth, @right.depth].max + 1
       end
     end
