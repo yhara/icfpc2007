@@ -77,5 +77,16 @@ module Endo
 
       assert_equal "I", DNA.new("IIP IP IICP IIC IIC   C IIC   FCFC".split.join).execute.dna.to_s
     end
+
+    def test_iter4
+      dna = DNA.new(File.read("test/data/iter4.dna"))
+      pat = dna.pattern
+      assert_equal "(<!7509409><?IFPICFPPCIFF>)(<!1>)(IFPICFPPCIFP)",
+                   DNA.inspect_pattern(pat)
+      tpl = dna.template
+      p [dna: dna.dna]
+      env = dna.match(pat, tpl)
+      assert_not_nil env
+    end
   end
 end

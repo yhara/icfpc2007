@@ -20,11 +20,15 @@
 # Rope#[from...to]が
 
 class Rope
+  def self.[](*args)
+    new(*args)
+  end
+
   def initialize(arg1=nil, arg2=nil)
     if arg2
       raise unless Rope === arg1 && Rope === arg2
       @left, @right = arg1, arg2
-      @size = @left + @right
+      @size = @left.size + @right.size
     else
       if arg1
         raise unless String === arg1
@@ -71,27 +75,47 @@ class Rope
 
   def [](arg)
     case arg
-    when Integer
-      enum_from(arg).each{|c| return c}
-    when Range
-      raise unless arg.exclude_end?
-      # Note: we can't use enum_from because of rope[0...7509409] called
-p [:slice_range, arg, arg.end-arg.begin]
-      # TODO: rangeの範囲が大きいと問題があるかも
-      return enum_from(arg.begin).with_index.inject(""){|s, (c, i)|
-        return s if (arg.begin+i) == arg.end
-        s << c
-        s
-      }
+    when Integer then char_at(arg)
+    when Range then substr(arg)
+    else raise
+    end
+  end
+
+  def char_at(pos)
+    if @leaf
+      @leaf[@start+pos] || ""
     else
-      raise
+      if pos < @left.size
+        @left.char_at(pos)
+      else
+        @right.char_at(pos - @left.size)
+      end
+    end
+  end
+
+  def substr(range)
+    raise unless range.exclude_end?
+    
+    from, to = range.begin, range.end
+    if @leaf
+      Rope.new(@leaf[(@start + from)...(@start + to)])
+    else
+      case
+      when to < @left.size
+        @left.substr(from...to)
+      when @left.size < from
+        @right.substr((from-@left.size)...(to-@left.size))
+      else
+        Rope.new(@left.substr(from...@left.size),
+                 @right.substr(0...(to-@left.size)))
+      end
     end
   end
 
   def index(str, pos)
     # TODO: 遅いかも
     enum_from(pos).each.with_index{|c, i|
-      return i if enum_from(pos+i).take(str.size).join == str
+      return pos+i+str.size if enum_from(pos+i).take(str.size).join == str
     }
     return nil
   end
@@ -108,7 +132,27 @@ p [:slice_range, arg, arg.end-arg.begin]
   end
 
   def to_s
-    enum_from(0).to_a.join
+    if @leaf
+      @leaf[@start..-1] || ""
+    else
+      @left.to_s.concat(@right.to_s)
+    end
+  end
+
+  def inspect
+    if size < 80
+      "#<#{to_s.inspect}>"
+    else
+      "#<#{substr(0...10)}..(#{size})>"
+    end
+  end
+
+  def tree
+    if @leaf
+      inspect
+    else
+      "#<N#{@left.inspect}, #{@right.inspect}>"
+    end
   end
 
   # yields String
@@ -119,9 +163,13 @@ p [:slice_range, arg, arg.end-arg.begin]
           y << @leaf[i]
         end
       else
-        @left.enum_from(pos){|c| y << c}
-        @right.enum_from(pos-@left.size){|c| y << c}
+        @left.enum_from(pos).each{|c| y << c}
+        @right.enum_from(pos-@left.size).each{|c| y << c}
       end
     }
+  end
+
+  def each_char
+    enum_from(0)
   end
 end

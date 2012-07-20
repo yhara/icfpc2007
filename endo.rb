@@ -1,7 +1,8 @@
 #!/usr/bin/env ruby
 require 'stringio'
 require 'progressbar'
-require_relative "lib/rope.rb"
+#require_relative "lib/rope.rb"
+require_relative "lib/rope2.rb"
 # endo.rb
 =begin
 DNA ==(execute)=> RNA ==(build)=> image
@@ -12,7 +13,7 @@ RNA ::= DNA*
 # Note: xs[m..n] means Ruby's xs[m...n] 
 =end
 
-$logfile = File.open("logfile.txt", "w")
+$logfile = File.open("rb.log", "w")
 $dumping_rna = false
 def _log(str, newline=false)
   $logfile.write "\n" if newline && $dumping_rna
@@ -22,6 +23,7 @@ def _log(str, newline=false)
 end
 
 def log(*args)
+  return
   puts args.first
   _log(*args)
 end
@@ -33,14 +35,13 @@ module Endo
     def self.iteration=(v); @iteration=v; end
 
     def initialize(dna)
-      #$pbar = ProgressBar.new("dna execute", 302450)
-      @dna = Rope[dna]
+      $pbar = ProgressBar.new("dna iteration", 1891886)
+      @dna = Rope.new(dna)
       #@rna = StringIO.new
       #rna = File.open("rna.rna", "w")
       @rna = Object.new
       def @rna.write(s)
-        log(s)
-        #$pbar.inc(s.size)
+        #log(s)
       end
     end
     attr_reader :dna
@@ -52,13 +53,14 @@ module Endo
     # Returns RNA
     def execute(return_string=false)
       catch :finish do
-        1.upto(Float::INFINITY) do |i|
+        0.upto(Float::INFINITY) do |i|
           DNA.iteration = i
-          log("-- iteration #{i}", true)
+          log("#{i}", true)
+          log("dna: #{@dna.inspect}")
           pat = pattern
-          log("pat: #{inspect_pattern(pat)}", true)
+          log("pat: #{DNA.inspect_pattern(pat)}", true)
           tpl = template
-          log("tpl: #{inspect_template(tpl)}", true)
+          log("tpl: #{DNA.inspect_template(tpl)}", true)
           env = match(pat, tpl)
           if env.nil?
             log("match returned nil", true)
@@ -66,19 +68,20 @@ module Endo
             log("env: #{env.inspect}", true)
             replace(tpl, env)
           end
-          p [:@dna, size:@dna.size, depth:@dna.depth, tree:@dna.tree]
+          #p [:@dna, @dna]
+          $pbar.inc(1)
         end
       end
       #$pbar.halt
       self
     end
 
-    def inspect_pattern(pat)
+    def self.inspect_pattern(pat)
       pat.map{|b|
         if Array === b
           case b[0]
-          when "!" then "!#{b[1]}"
-          when "?" then "?#{b[1]}"
+          when "!" then "<!#{b[1]}>"
+          when "?" then "<?#{b[1]}>"
           else raise
           end
         else
@@ -87,10 +90,14 @@ module Endo
       }.join
     end
 
-    def inspect_template(tpl)
+    def self.inspect_template(tpl)
       tpl.map{|b|
         if Array === b
-          "(#{b[0]}*#{b[1]})"
+          if b[0] == :abs
+            "|#{b[1]}|"
+          else
+            "(#{b[0]}*#{b[1]})"
+          end
         else
           b
         end
@@ -114,7 +121,7 @@ module Endo
           case @dna.shift
           when "C" then p << :P
           when "P" then p << ["!", nat()]
-          when "F" then p << ["?", consts()]; @dna.shift
+          when "F" then @dna.shift; p << ["?", consts()]
           when "I"
             case @dna.shift
             when "P"      
@@ -146,29 +153,26 @@ module Endo
       when "P"      then 0
       when "I", "F" then 2 * nat
       when "C"      then 2 * nat + 1
-      when nil      then nil
+      when nil      then finish
       else raise
       end
     end
 
     def consts
-p [:consts]
       ret = ""
       loop do
-        case @dna.shift
-        when "C" then ret << "I"
-        when "F" then ret << "C"
-        when "P" then ret << "F"
-        when "I"
-          if @dna[0] == "C"
-            @dna.shift
-            ret << "P"
-          else
-            return ""
-          end
-        when nil
-          return ""
-        else raise
+        case
+        when @dna[0...2].to_s == "IC"
+          @dna.shift(2)
+          ret << "P"
+        when @dna[0] == "C"
+          @dna.shift; ret << "I" 
+        when @dna[0] == "F"
+          @dna.shift; ret << "C" 
+        when @dna[0] == "P"
+          @dna.shift; ret << "F" 
+        else
+          break
         end
       end
       ret
@@ -205,21 +209,28 @@ p [:consts]
     end
 
     def match(pat, t)
+      verbose = false
       i = 0
       env = []
       c = []
       pat.each do |b|
+p [:match, i:i, e:env, c:c, b:b] if verbose
         case b
         when Array
           case b[0]
-          when "!"  # skip
-            n = b[1]; i += n
-            return if i > @dna.size
+          when "!"
+            n = b[1]
+            i += n
+            if i > @dna.size
+p [:oversize] if verbose
+              return
+            end
           when "?"
             s = b[1]
-            if (n = @dna.indexxx(s, i))
+            if (n = @dna.index(s, i))
               i = n
             else
+p [:no_index, s, i] if verbose
               return
             end
           else raise
@@ -228,10 +239,13 @@ p [:consts]
           c.unshift i
         when ")"
           env << @dna[c[0]...i]
+p [:extract_env, c[0]...i, env.last] if verbose
           c.shift
         else
           if @dna[i] == b.to_s then i+=1
-          else return
+          else
+p [:no_literal, b, i, @dna[i...@dna.size]] if verbose
+            return
           end
         end
       end
@@ -255,7 +269,7 @@ p [:consts]
           r << b.to_s
         end
       end
-      @dna.prepend(r.join)
+      @dna = Rope.new(r.join) + @dna
     end
 
     # Returns String or Rope (when l == 0)
