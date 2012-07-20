@@ -29,6 +29,7 @@ class Rope
       raise unless Rope === arg1 && Rope === arg2
       @left, @right = arg1, arg2
       @size = @left.size + @right.size
+      @depth = [@left.depth, @right.depth].max + 1
     else
       if arg1
         raise unless String === arg1
@@ -37,8 +38,10 @@ class Rope
         @leaf = ""
       end
       @start = 0
+      @depth = 1
     end
   end
+  attr_reader :depth
 
   def size
     if @leaf
@@ -69,6 +72,7 @@ class Rope
       ret = @left.shift(shift_l) || ""
       ret.concat @right.shift(shift_r) if shift_r >= 0
       @size = @left.size + @right.size
+      @depth = [@left.depth, @right.depth].max + 1
       ret
     end
   end
@@ -151,7 +155,7 @@ class Rope
     if @leaf
       inspect
     else
-      "#<N#{@left.inspect}, #{@right.inspect}>"
+      "#<N#{@left.tree}, #{@right.tree}>"
     end
   end
 
