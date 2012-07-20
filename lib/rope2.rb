@@ -20,6 +20,7 @@
 # Rope#[from...to]が
 
 require 'forwardable'
+require 'delegate'
 
 module Profilable
   def prof(method_name, opts={})
@@ -292,7 +293,7 @@ class Rope
     end
   end
 
-  class ShiftableString < String
+  class ShiftableString < DelegateClass(String)
     def initialize(*args)
       super
       @start = 0
