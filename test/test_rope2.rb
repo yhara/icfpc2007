@@ -108,6 +108,10 @@ class TestRope2 < Test::Unit::TestCase
     r = Rope[Rope["_ab"], Rope["cde"]]
     r.shift
     assert_equal 4, r.index("cd", 1)
+
+    r = Rope[ Rope[Rope["_a"], Rope["b"]],
+              Rope[Rope["c"], Rope["d"]] ]; r.shift
+    assert_equal 4, r.index("bcd", 0)
   end
 
   def test_enum_from

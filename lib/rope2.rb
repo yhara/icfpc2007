@@ -203,13 +203,52 @@ class Rope
     end
 
     def index(str, pos)
-      # TODO: 遅いかも
-      enum_from(pos).each.with_index{|c, i|
-        return pos+i+str.size if enum_from(pos+i).take(str.size).join == str
-      }
-      return nil
+      if @leaf
+        #     |  pos
+        # |        found_pos
+        # |___ABCDEstrFGHI|
+        # |   @start
+        #     |       ret
+        found_pos = @leaf.index(str, @start + pos)
+        if found_pos
+          found_pos + str.size - @start
+        else
+          nil
+        end
+      else
+        unless @left.size <= pos
+          # Need to search @left
+          if (found = @left.index(str, pos))
+            return found
+          else
+            #       str        <- we already know this never happens
+            #        st   r
+            #         s   tr
+            #             str  <- we can use @right.index
+            # |aabbcc??| |??ffgghh|
+            # left       right
+            start = @left.size - str.size
+            str.size.times{|k|
+              if start + k >= 0
+                s = enum_from(start + k).take(str.size).join
+                return start + k + str.size if s == str
+              end
+            }
+          end
+        end
+        if (found_pos = @right.index(str, 0))
+          @left.size + found_pos
+        else
+          nil
+        end
+      end
+
+#      enum_from(pos).each.with_index{|c, i|
+#        return pos+i+str.size if enum_from(pos+i).take(str.size).join == str
+#      }
+#      return nil
     end
-    prof :index, start: true, when: ->{ Endo::DNA.iteration >= 400 }
+    #prof :index, start: true, when: ->{ Endo::DNA.iteration >= 400 }
 
     def +(other_rope)
       raise TypeError unless Rope === other_rope
@@ -249,14 +288,19 @@ class Rope
 
     # yields String
     def enum_from(pos)
+      raise ArgumentError if pos < 0
       Enumerator.new{|y|
         if @leaf
           (@start+pos).upto(@leaf.size-1).each do |i|
             y << @leaf[i]
           end
         else
-          @left.enum_from(pos).each{|c| y << c}
-          @right.enum_from(pos-@left.size).each{|c| y << c}
+          if pos < @left.size
+            @left.enum_from(pos).each{|c| y << c}
+            @right.enum_from(0).each{|c| y << c}
+          else
+            @right.enum_from(pos-@left.size).each{|c| y << c}
+          end
         end
       }
     end
