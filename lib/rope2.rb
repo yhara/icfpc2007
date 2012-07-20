@@ -59,7 +59,7 @@ class Rope
       @node = Node.new(arg1, arg2)
     else
       case arg1
-      when String then @node = Node.new(arg1)
+      when String then @node = Node.new(ShiftableString.new(arg1))
       when Node   then @node = arg1
       else raise TypeError
       end
@@ -95,10 +95,10 @@ class Rope
         update_size_and_depth!
       else
         if arg1
-          raise unless String === arg1
+          raise unless ShiftableString === arg1
           @leaf = arg1
         else
-          @leaf = ""
+          @leaf = ShiftableString.new("")
         end
         @start = 0
         @depth = 1
@@ -108,7 +108,7 @@ class Rope
 
     def size
       if @leaf
-        [@leaf.size - @start, 0].max
+        @leaf.size
       else
         @size
       end
@@ -116,7 +116,7 @@ class Rope
 
     def empty?
       if @leaf
-        @start >= @leaf.size
+        @leaf.empty?
       else
         @size == 0
       end
@@ -125,9 +125,7 @@ class Rope
     def shift!(n=1)
       return nil if empty?
       if @leaf
-        ret = @leaf[@start, n]
-        @start += n
-        ret
+        @leaf.shift!(n)
       else
         l_shift = [n, @left.size].min
         r_shift = n - @left.size
@@ -173,7 +171,7 @@ class Rope
 
     def char_at(pos)
       if @leaf
-        @leaf[@start+pos] || ""
+        @leaf.char_at(pos)
       else
         if pos < @left.size
           @left.char_at(pos)
@@ -188,7 +186,7 @@ class Rope
       
       from, to = range.begin, range.end
       if @leaf
-        Rope.new(@leaf[(@start + from)...(@start + to)])
+        Rope.new(@leaf.substr(range) || "")
       else
         case
         when to < @left.size
@@ -204,17 +202,7 @@ class Rope
 
     def index(str, pos)
       if @leaf
-        #     |  pos
-        # |        found_pos
-        # |___ABCDEstrFGHI|
-        # |   @start
-        #     |       ret
-        found_pos = @leaf.index(str, @start + pos)
-        if found_pos
-          found_pos + str.size - @start
-        else
-          nil
-        end
+        @leaf.index(str, pos)
       else
         unless @left.size <= pos
           # Need to search @left
@@ -242,11 +230,6 @@ class Rope
           nil
         end
       end
-
-#      enum_from(pos).each.with_index{|c, i|
-#        return pos+i+str.size if enum_from(pos+i).take(str.size).join == str
-#      }
-#      return nil
     end
     #prof :index, start: true, when: ->{ Endo::DNA.iteration >= 400 }
 
@@ -264,7 +247,7 @@ class Rope
 
     def to_s
       if @leaf
-        @leaf[@start..-1] || ""
+        @leaf.to_s
       else
         @left.to_s.concat(@right.to_s)
       end
@@ -289,24 +272,83 @@ class Rope
     # yields String
     def enum_from(pos)
       raise ArgumentError if pos < 0
-      Enumerator.new{|y|
-        if @leaf
-          (@start+pos).upto(@leaf.size-1).each do |i|
-            y << @leaf[i]
-          end
-        else
+      if @leaf
+        @leaf.enum_from(pos)
+      else
+        Enumerator.new{|y|
           if pos < @left.size
             @left.enum_from(pos).each{|c| y << c}
             @right.enum_from(0).each{|c| y << c}
           else
             @right.enum_from(pos-@left.size).each{|c| y << c}
           end
-        end
-      }
+        }
+      end
     end
 
     def each_char
       enum_from(0)
     end
+  end
+
+  class ShiftableString < String
+    def initialize(*args)
+      super
+      @start = 0
+    end
+
+    alias orig_size size
+    def size 
+      # TODO: cache?
+      [orig_size - @start, 0].max
+    end
+
+    def empty?
+      @start >= orig_size
+    end
+
+    def shift!(n=1)
+      ret = self[@start, n]
+      @start += n
+      ret
+    end
+    alias shift shift!
+
+    def char_at(pos)
+      self[@start + pos] || ""
+    end
+
+    def substr(range)
+      raise unless range.exclude_end?
+
+      self[(@start + range.begin)...(@start + range.end)]
+    end
+
+    def index(str, pos)
+      #     |  pos
+      # |        found_pos
+      # |___ABCDEstrFGHI|
+      # |   @start
+      #     |       ret
+      if (found_pos = super(str, @start + pos))
+        found_pos + str.size - @start
+      else
+        nil
+      end
+    end
+
+    def to_s
+      self[@start..-1] || ""
+    end
+
+    def enum_from(pos)
+      raise ArgumentError if pos < 0
+      Enumerator.new{|y|
+        (@start+pos).upto(orig_size-1).each do |i|
+          y << self[i]
+        end
+      }
+    end
+
   end
 end
